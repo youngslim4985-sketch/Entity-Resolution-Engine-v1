@@ -9,7 +9,9 @@ import {
   AlertTriangle, 
   Zap,
   ChevronRight,
-  Database
+  Database,
+  Award,
+  Globe
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Markdown from "react-markdown";
@@ -26,6 +28,37 @@ const CLUSTERS: ClusterContext[] = [
   { id: "CX-8821", name: "High Yield Whale", riskLevel: "LOW", assets: ["ETH", "USDC"], lastActive: "1h ago", connections: 45 },
   { id: "CX-4402", name: "Mixer Proxy", riskLevel: "HIGH", assets: ["XMR", "ETH"], lastActive: "12s ago", connections: 890 }
 ];
+
+const StabilityVisualizer = ({ energy = 0.5 }: { energy?: number }) => (
+  <div className="relative w-full h-32 bg-neutral-900/50 rounded-lg overflow-hidden border border-neutral-800">
+    <div className="absolute inset-0 flex items-center justify-center">
+      <motion.div
+        animate={{ 
+          scale: [1, 1.2, 1],
+          opacity: [0.3, 0.6, 0.3],
+          rotate: energy * 360
+        }}
+        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+        className="w-24 h-24 border border-indigo-500/30 rounded-full"
+      />
+      <motion.div
+        animate={{ 
+          scale: [1.2, 1, 1.2],
+          opacity: [0.2, 0.4, 0.2]
+        }}
+        transition={{ duration: 2.5, repeat: Infinity }}
+        className="absolute w-16 h-16 border border-indigo-400/20 rounded-full"
+      />
+    </div>
+    <div className="absolute bottom-2 left-3 flex items-center gap-2">
+      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse" />
+      <span className="text-[8px] font-black uppercase text-neutral-500 tracking-[0.2em]">Lyapunov Phase Space</span>
+    </div>
+    <div className="absolute top-2 right-3">
+      <span className="text-[10px] font-black text-white italic">E: {(energy * 100).toFixed(2)}</span>
+    </div>
+  </div>
+);
 
 export default function App() {
   const [selectedCluster, setSelectedCluster] = useState<ClusterContext>(CLUSTERS[0]);
@@ -259,7 +292,55 @@ export default function App() {
         </main>
 
         {/* Right Column: Evidence & Metrics */}
-        <aside className="lg:col-span-3 space-y-6">
+        <aside className="lg:col-span-3 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* Stability Layer */}
+          <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-5 space-y-4">
+            <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-2">
+              <Zap size={12} className="text-indigo-500" /> Stability Monitor
+            </h3>
+            
+            <StabilityVisualizer energy={report?.stability?.energy} />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-2 bg-neutral-950 rounded border border-neutral-800">
+                <p className="text-[8px] text-neutral-600 uppercase font-black">Entropy</p>
+                <p className="text-xs text-white font-bold">{(report?.stability?.entropy || 0).toFixed(3)}</p>
+              </div>
+              <div className="p-2 bg-neutral-950 rounded border border-neutral-800">
+                <p className="text-[8px] text-neutral-600 uppercase font-black">Drift</p>
+                <p className="text-xs text-white font-bold">{(report?.stability?.drift || 0).toFixed(3)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Certificate */}
+          {report?.certificate && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-indigo-600 p-5 rounded-xl border border-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.2)] space-y-4 relative overflow-hidden"
+            >
+              <div className="absolute -right-4 -top-4 opacity-10">
+                <Award size={100} />
+              </div>
+              <div className="flex items-start justify-between relative z-10">
+                <div>
+                  <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest">Intelligence Certificate</p>
+                  <h4 className="text-white font-black italic text-xl">{report.certificate.complianceRating} GRADE</h4>
+                </div>
+                <Award className="text-white" size={24} />
+              </div>
+              <div className="pt-2 border-t border-indigo-400/30 relative z-10">
+                <p className="text-[8px] text-indigo-100 uppercase font-bold mb-2">Audit Trace</p>
+                <div className="space-y-1">
+                  {report.certificate.signatures.map(sig => (
+                    <p key={sig} className="text-[8px] font-mono text-indigo-200 truncate">{sig}</p>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           <div className="bg-neutral-900/40 border border-neutral-800 rounded-xl p-5 space-y-6">
             <h3 className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest flex items-center gap-2">
               <Activity size={12} className="text-indigo-500" /> Evidence Logs

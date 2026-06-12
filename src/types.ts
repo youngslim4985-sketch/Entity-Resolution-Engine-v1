@@ -1,3 +1,5 @@
+import { StabilityState, IntelligenceCertificate } from "../server/stability/types";
+
 export type ReportType = 'narrative' | 'risk' | 'investigation' | 'project' | 'brief';
 
 export interface ClusterContext {
@@ -22,6 +24,8 @@ export interface AnalystReport {
     flowDirection: string;
     anomalyScore: number;
   };
+  stability?: StabilityState;
+  certificate?: IntelligenceCertificate;
 }
 
 export interface Message {

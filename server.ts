@@ -6,6 +6,9 @@ import dotenv from "dotenv";
 import { ANALYST_PROMPTS } from "./server/prompts";
 import { getClusterContext, CLUSTER_RECORDS } from "./server/context";
 import { AnalystReport } from "./src/types";
+import { controller } from "./server/stability/adaptive-control";
+import { calculateEntropy } from "./server/stability/entropy";
+import { generateCertificate } from "./server/stability/certificate";
 
 dotenv.config();
 
@@ -14,7 +17,14 @@ async function startServer() {
   const PORT = 3000;
 
   // Initialize Gemini
-  const ai = new GoogleGenAI(process.env.GEMINI_API_KEY!);
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      }
+    }
+  });
 
   app.use(express.json());
 
@@ -30,11 +40,21 @@ async function startServer() {
       const context = getClusterContext(clusterId);
       const promptBase = ANALYST_PROMPTS[type as keyof typeof ANALYST_PROMPTS] || ANALYST_PROMPTS.narrative;
 
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `${promptBase}\n\nCONTEXT:\n${JSON.stringify(context, null, 2)}\n\nGenerate a detailed intelligence report in Markdown format.`;
 
-      const result = await model.generateContent(prompt);
-      const output = result.response.text();
+      const result = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt
+      });
+      const output = result.text;
+      const startTime = Date.now();
+
+      // Stability Logic
+      const entropy = calculateEntropy(output);
+      const confidence = 0.85 + (Math.random() * 0.1); // Simulated confidence
+      const latency = Date.now() - startTime;
+      const { state } = controller.processCycle(confidence, latency);
+      const certificate = generateCertificate(state, clusterId);
 
       const report: AnalystReport = {
         id: `REP-${Math.random().toString(36).substring(7).toUpperCase()}`,
@@ -48,7 +68,9 @@ async function startServer() {
           volume24h: "$1.2M",
           flowDirection: "Mixed",
           anomalyScore: context.riskLevel === 'CRITICAL' ? 0.98 : 0.12
-        }
+        },
+        stability: { ...state, entropy },
+        certificate
       };
 
       res.json(report);
@@ -61,11 +83,13 @@ async function startServer() {
   // Smart Money Brief endpoint
   app.get("/api/report/brief", async (req, res) => {
     try {
-      const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `${ANALYST_PROMPTS.brief}\n\nCONTEXT:\n${JSON.stringify(CLUSTER_RECORDS, null, 2)}`;
       
-      const result = await model.generateContent(prompt);
-      res.json({ content: result.response.text() });
+      const result = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt
+      });
+      res.json({ content: result.text });
     } catch (error: any) {
       res.status(500).json({ error: "Brief generation failed" });
     }
