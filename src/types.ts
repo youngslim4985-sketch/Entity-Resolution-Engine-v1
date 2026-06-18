@@ -2,6 +2,45 @@ import { StabilityState, IntelligenceCertificate } from "../server/stability/typ
 
 export type ReportType = 'narrative' | 'risk' | 'investigation' | 'project' | 'brief';
 
+export interface AuditEvent {
+  event_id: string;
+  timestamp: string;
+  actor_id: string;
+  action_type: string;
+  target: string;
+  status: string;
+  confidence_threshold: string;
+  lyapunov_energy_v: string;
+  details?: string;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  type: string;
+  group: number;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
+  weight: number;
+}
+
+export interface GraphVisualResponse {
+  entity_id: string;
+  resolution_status: string;
+  confidence_score: number;
+  g_metrics: {
+    nodes_count: number;
+    edges_count: number;
+    risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  };
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
 export interface ClusterContext {
   id: string;
   name: string;

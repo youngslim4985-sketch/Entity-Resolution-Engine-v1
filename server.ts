@@ -9,6 +9,7 @@ import { AnalystReport } from "./src/types";
 import { controller } from "./server/stability/adaptive-control";
 import { calculateEntropy } from "./server/stability/entropy";
 import { generateCertificate } from "./server/stability/certificate";
+import { seedLedger, auditHistory, graphVisuals } from "./server/demo-data";
 
 dotenv.config();
 
@@ -93,6 +94,36 @@ async function startServer() {
     } catch (error: any) {
       res.status(500).json({ error: "Brief generation failed" });
     }
+  });
+
+  // Demo ledger seeding (accepted on both root and /api paths)
+  app.post("/demo/seed-ledger", (req, res) => {
+    const result = seedLedger();
+    res.json(result);
+  });
+  app.post("/api/demo/seed-ledger", (req, res) => {
+    const result = seedLedger();
+    res.json(result);
+  });
+
+  // Entity graph visualization (accepted on both root and /api paths)
+  app.get("/entities/:entityId/graph-visual", (req, res) => {
+    const entityId = req.params.entityId;
+    const visual = graphVisuals[entityId] || graphVisuals["artist_future_001"];
+    res.json(visual);
+  });
+  app.get("/api/entities/:entityId/graph-visual", (req, res) => {
+    const entityId = req.params.entityId;
+    const visual = graphVisuals[entityId] || graphVisuals["artist_future_001"];
+    res.json(visual);
+  });
+
+  // Audit events listing (accepted on both root and /api paths)
+  app.get("/audit/events", (req, res) => {
+    res.json(auditHistory);
+  });
+  app.get("/api/audit/events", (req, res) => {
+    res.json(auditHistory);
   });
 
   // Vite middleware for development
