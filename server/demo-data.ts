@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 export interface AuditEvent {
   event_id: string;
   timestamp: string;
@@ -37,32 +40,68 @@ export interface GraphVisualResponse {
   edges: GraphEdge[];
 }
 
-export let hasSeeded = false;
+const AUDIT_LOG_PATH = path.join(process.cwd(), "logs", "audit.jsonl");
 
-export const auditHistory: AuditEvent[] = [
-  {
-    event_id: "AUDIT-0001",
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    actor_id: "SYSTEM_CORTEZ_BRYANT_GATE",
-    action_type: "RESOLVE_IDENTITY",
-    target: "artist_future_001",
-    status: "APPROVED",
-    confidence_threshold: "0.9200",
-    lyapunov_energy_v: "0.0124",
-    details: "Identity successfully resolved with Union-Find cluster group #4"
-  },
-  {
-    event_id: "AUDIT-0002",
-    timestamp: new Date(Date.now() - 1800000).toISOString(),
-    actor_id: "STABILITY_OPTIMIZER",
-    action_type: "ADAPT_THRESHOLD",
-    target: "ALPHA_CORE",
-    status: "COMPLETED",
-    confidence_threshold: "0.9500",
-    lyapunov_energy_v: "0.0082",
-    details: "Lyapunov stability optimization: threshold adjusted 0.85 -> 0.95"
+export function getAuditHistory(): AuditEvent[] {
+  try {
+    if (!fs.existsSync(AUDIT_LOG_PATH)) {
+      const initialEvents: AuditEvent[] = [
+        {
+          event_id: "AUDIT-0001",
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          actor_id: "SYSTEM_CORTEZ_BRYANT_GATE",
+          action_type: "RESOLVE_IDENTITY",
+          target: "artist_future_001",
+          status: "APPROVED",
+          confidence_threshold: "0.9200",
+          lyapunov_energy_v: "0.0124",
+          details: "Identity successfully resolved with Union-Find cluster group #4"
+        },
+        {
+          event_id: "AUDIT-0002",
+          timestamp: new Date(Date.now() - 1800000).toISOString(),
+          actor_id: "STABILITY_OPTIMIZER",
+          action_type: "ADAPT_THRESHOLD",
+          target: "ALPHA_CORE",
+          status: "COMPLETED",
+          confidence_threshold: "0.9500",
+          lyapunov_energy_v: "0.0082",
+          details: "Lyapunov stability optimization: threshold adjusted 0.85 -> 0.95"
+        }
+      ];
+      const dir = path.dirname(AUDIT_LOG_PATH);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(AUDIT_LOG_PATH, initialEvents.map(e => JSON.stringify(e)).join("\n") + "\n");
+      return initialEvents;
+    }
+
+    const content = fs.readFileSync(AUDIT_LOG_PATH, "utf-8");
+    return content
+      .split("\n")
+      .filter(line => line.trim())
+      .map(line => JSON.parse(line));
+  } catch (error) {
+    console.error("Failed to load audit events:", error);
+    return [];
   }
-];
+}
+
+export function writeAuditEvent(event: AuditEvent): AuditEvent {
+  try {
+    const dir = path.dirname(AUDIT_LOG_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.appendFileSync(AUDIT_LOG_PATH, JSON.stringify(event) + "\n");
+  } catch (error) {
+    console.error("Failed to write audit event:", error);
+  }
+  return event;
+}
+
+export let hasSeeded = false;
 
 export const graphVisuals: Record<string, GraphVisualResponse> = {
   "artist_future_001": {
@@ -118,11 +157,10 @@ export const graphVisuals: Record<string, GraphVisualResponse> = {
 export function seedLedger() {
   hasSeeded = true;
 
-  // Add robust, highly structured compliance logs to audit history
   const timestamp = new Date().toISOString();
-  
-  const initialLen = auditHistory.length;
-  // Seed several ledger events to make curl /audit/events look extremely high quality
+  const currentEvents = getAuditHistory();
+  const initialLen = currentEvents.length;
+
   const seedEvents: AuditEvent[] = [
     {
       event_id: `AUDIT-000${initialLen + 1}`,
@@ -159,7 +197,9 @@ export function seedLedger() {
     }
   ];
 
-  auditHistory.push(...seedEvents);
+  for (const evt of seedEvents) {
+    writeAuditEvent(evt);
+  }
 
   return {
     status: "success",

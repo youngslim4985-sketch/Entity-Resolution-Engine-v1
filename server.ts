@@ -9,7 +9,7 @@ import { AnalystReport } from "./src/types";
 import { controller } from "./server/stability/adaptive-control";
 import { calculateEntropy } from "./server/stability/entropy";
 import { generateCertificate } from "./server/stability/certificate";
-import { seedLedger, auditHistory, graphVisuals } from "./server/demo-data";
+import { seedLedger, getAuditHistory, writeAuditEvent, graphVisuals } from "./server/demo-data";
 
 dotenv.config();
 
@@ -74,6 +74,21 @@ async function startServer() {
         certificate
       };
 
+      // Logging report generation in the Layer 8 compliance audit stream
+      const currentHistory = getAuditHistory();
+      const auditEvt = {
+        event_id: `AUDIT-000${currentHistory.length + 1}`,
+        timestamp: new Date().toISOString(),
+        actor_id: "REPORTING_ENGINE_GEMINI",
+        action_type: "GENERATE_REPORT",
+        target: clusterId,
+        status: "SUCCESS",
+        confidence_threshold: confidence.toFixed(4),
+        lyapunov_energy_v: state.energy.toFixed(4),
+        details: `Successfully generated ${type} intelligence briefing for ${context.name}. Quality: ${certificate.complianceRating}.`
+      };
+      writeAuditEvent(auditEvt);
+
       res.json(report);
     } catch (error: any) {
       console.error("Analyst Error:", error);
@@ -120,10 +135,10 @@ async function startServer() {
 
   // Audit events listing (accepted on both root and /api paths)
   app.get("/audit/events", (req, res) => {
-    res.json(auditHistory);
+    res.json(getAuditHistory());
   });
   app.get("/api/audit/events", (req, res) => {
-    res.json(auditHistory);
+    res.json(getAuditHistory());
   });
 
   // Vite middleware for development
